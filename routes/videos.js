@@ -18,7 +18,7 @@ const publicVideo = (video) => {
 };
 
 router.post('/generate', async (req, res) => {
-  const { prompt, resolution, ratio, duration, ai_model, asset_ids, recipe_data } = req.body;
+  const { prompt, resolution, ratio, duration, ai_model, asset_ids, recipe_data, voice_id } = req.body;
 
   if (!prompt) {
     return res.status(400).json({ error: 'Prompt is required' });
@@ -51,7 +51,10 @@ router.post('/generate', async (req, res) => {
       resolution: resolution || settings.default_resolution,
       ratio: ratio || settings.default_ratio,
       duration: duration || settings.default_duration,
-      ai_model: ai_model || settings.default_model
+      ai_model: ai_model || settings.default_model,
+      voice_id: voice_id || (recipe_data && recipe_data.voice_id) || '',
+      script: (recipe_data && recipe_data.script_text) || '',
+      language: (recipe_data && recipe_data.language_style) || 'Indonesian'
     };
 
     let jobId;

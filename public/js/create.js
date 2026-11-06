@@ -88,6 +88,7 @@
     setupLibraryToggles();
     setupGenerateButton();
     setupModelSelector();
+    setupVoicePicker();
     setupDurationSlider();
     setupScriptInput();
     setupUgcFormatSelect();
@@ -301,6 +302,7 @@
       motion_style: getValue('motion-style', 'product reveal, hand interaction, and stable close-up demonstration'),
       lighting_style: getValue('lighting-style', 'bright natural morning light, clean home setting'),
       language_style: getValue('language-style', 'Indonesian'),
+      voice_id: getValue('voice-select', ''),
       music_style: getValue('music-style', 'with subtle upbeat background music'),
       audio_style: getValue('audio-style', 'natural voiceover energy with product handling sound effects synced to motion'),
       cta_style: getValue('cta-style', 'soft CTA to check the product link'),
@@ -342,10 +344,12 @@
     var images = state.selectedAssets.product.length + state.selectedAssets.model.length + state.selectedAssets.background.length;
     if (model === 'kling-3.0-turbo') images = Math.min(images, 1);
     var imageCost = model === 'minimax-h3' ? images * 4 : 0;
-    var total = perSecond * seconds + imageCost;
+    var voiceSelect = $('#voice-select');
+    var voiceCost = voiceSelect && voiceSelect.value && !voiceSelect.disabled ? 1 : 0;
+    var total = perSecond * seconds + imageCost + voiceCost;
     box.innerHTML = '<span>Perkiraan biaya</span><strong>' + formatNumber(total) + ' kredit</strong>' +
       '<small>≈ $' + formatNumber(total * CREDIT_USD, 2) + ' · ' + formatNumber(perSecond) + ' kredit/detik × ' + seconds + ' detik' +
-      (imageCost ? ' + ' + imageCost + ' kredit foto' : '') + '</small>';
+      (imageCost ? ' + ' + imageCost + ' kredit foto' : '') + (voiceCost ? ' + ~1 kredit suara ElevenLabs' : '') + '</small>';
   }
 
   function updatePromptPreview() {
@@ -731,16 +735,16 @@
   }
 
   var MODEL_LIMITS = {
-    'seedance-2.5': { resolutions: ['480p', '720p', '1080p'], maxDuration: 30, ratios: ['1:1', '4:3', '3:4', '16:9', '9:16', '21:9', 'adaptive'] },
-    'seedance-2.0': { resolutions: ['480p', '720p', '1080p', '4k'], maxDuration: 15, ratios: ['1:1', '4:3', '3:4', '16:9', '9:16', '21:9', 'adaptive'] },
-    'seedance-2.0-fast': { resolutions: ['480p', '720p'], maxDuration: 15, ratios: ['1:1', '4:3', '3:4', '16:9', '9:16', '21:9', 'adaptive'] },
-    'seedance-2.0-mini': { resolutions: ['480p', '720p'], maxDuration: 15, ratios: ['1:1', '4:3', '3:4', '16:9', '9:16', '21:9', 'adaptive'] },
-    'kling-4.0': { resolutions: ['720p', '1080p'], maxDuration: 30, ratios: ['16:9', '9:16', '1:1', '21:9', 'adaptive'] },
-    'kling-4.0-flash': { resolutions: ['720p'], maxDuration: 20, ratios: ['16:9', '9:16', '1:1', '21:9', 'adaptive'] },
-    'kling-3.0': { resolutions: ['720p', '1080p', '4k'], maxDuration: 15, ratios: ['16:9', '9:16', '1:1'] },
-    'kling-3.0-turbo': { resolutions: ['720p', '1080p'], maxDuration: 15, ratios: ['1:1', '4:3', '3:4', '16:9', '9:16', '21:9', 'adaptive'] },
-    'vidu-q4': { resolutions: ['720p', '1080p', '4k'], maxDuration: 16, ratios: ['16:9', '9:16', '1:1', '4:3', '3:4'] },
-    'minimax-h3': { resolutions: ['720p', '1080p'], maxDuration: 15, ratios: ['1:1', '4:3', '3:4', '16:9', '9:16', '21:9', 'adaptive'] }
+    'seedance-2.5': { resolutions: ['480p', '720p', '1080p'], maxDuration: 30, ratios: ['1:1', '4:3', '3:4', '16:9', '9:16', '21:9', 'adaptive'], voice: true },
+    'seedance-2.0': { resolutions: ['480p', '720p', '1080p', '4k'], maxDuration: 15, ratios: ['1:1', '4:3', '3:4', '16:9', '9:16', '21:9', 'adaptive'], voice: true },
+    'seedance-2.0-fast': { resolutions: ['480p', '720p'], maxDuration: 15, ratios: ['1:1', '4:3', '3:4', '16:9', '9:16', '21:9', 'adaptive'], voice: true },
+    'seedance-2.0-mini': { resolutions: ['480p', '720p'], maxDuration: 15, ratios: ['1:1', '4:3', '3:4', '16:9', '9:16', '21:9', 'adaptive'], voice: true },
+    'kling-4.0': { resolutions: ['720p', '1080p'], maxDuration: 30, ratios: ['16:9', '9:16', '1:1', '21:9', 'adaptive'], voice: true },
+    'kling-4.0-flash': { resolutions: ['720p'], maxDuration: 20, ratios: ['16:9', '9:16', '1:1', '21:9', 'adaptive'], voice: false },
+    'kling-3.0': { resolutions: ['720p', '1080p', '4k'], maxDuration: 15, ratios: ['16:9', '9:16', '1:1'], voice: false },
+    'kling-3.0-turbo': { resolutions: ['720p', '1080p'], maxDuration: 15, ratios: ['1:1', '4:3', '3:4', '16:9', '9:16', '21:9', 'adaptive'], voice: false },
+    'vidu-q4': { resolutions: ['720p', '1080p', '4k'], maxDuration: 16, ratios: ['16:9', '9:16', '1:1', '4:3', '3:4'], voice: true },
+    'minimax-h3': { resolutions: ['720p', '1080p'], maxDuration: 15, ratios: ['1:1', '4:3', '3:4', '16:9', '9:16', '21:9', 'adaptive'], voice: true }
   };
 
   function applyModelLimits(model, resSelect, durSelect, slider, display) {
@@ -766,12 +770,49 @@
         durSelect.value = String(limits.maxDuration) + (String(durSelect.value).indexOf('s') > -1 ? 's' : '');
       }
     }
+    updateVoiceAvailability(limits.voice);
     if (slider) {
       slider.max = String(limits.maxDuration);
       if (parseInt(slider.value, 10) > limits.maxDuration) slider.value = String(limits.maxDuration);
       if (durSelect) slider.value = parseInt(durSelect.value, 10);
       if (display) display.textContent = slider.value + 's';
     }
+  }
+
+  function updateVoiceAvailability(supported) {
+    var select = $('#voice-select');
+    var hint = $('#voice-hint');
+    var preview = $('#voice-preview');
+    if (!select) return;
+    select.disabled = !supported;
+    if (!supported) select.value = '';
+    if (preview) preview.disabled = !select.value;
+    if (hint) {
+      hint.textContent = supported
+        ? 'Pilih suara agar creator berbicara dengan karakter suara itu. Klik ▶ untuk mendengar contohnya.'
+        : 'Model ini belum mendukung pilihan suara. Pakai Seedance, Kling 4.0, Vidu Q4, atau MiniMax H3.';
+      hint.classList.toggle('is-warning', !supported);
+    }
+  }
+
+  function setupVoicePicker() {
+    var select = $('#voice-select');
+    var preview = $('#voice-preview');
+    if (!select || !preview) return;
+    var audio = null;
+    select.addEventListener('change', function () {
+      preview.disabled = !select.value;
+      if (audio) { audio.pause(); audio = null; preview.textContent = '▶'; }
+    });
+    preview.addEventListener('click', function () {
+      if (!select.value) return;
+      if (audio) { audio.pause(); audio = null; preview.textContent = '▶'; return; }
+      // Sample clips published by KIE AI for each ElevenLabs voice.
+      audio = new Audio('https://static.aiquickdraw.com/elevenlabs/voice/' + select.value + '.mp3');
+      preview.textContent = '■';
+      audio.addEventListener('ended', function () { audio = null; preview.textContent = '▶'; });
+      audio.play().catch(function () { audio = null; preview.textContent = '▶'; showToast('Contoh suara gagal diputar', 'error'); });
+    });
   }
 
   function setupModelSelector() {
@@ -1177,6 +1218,7 @@
       ratio: $('#ratio-select').value,
       duration: $('#duration-slider').value + 's',
       ai_model: getSelectedModel(),
+      voice_id: ($('#voice-select') && !$('#voice-select').disabled) ? $('#voice-select').value : '',
       asset_ids: allAssets.map(function (a) { return a.id; }),
       recipe_data: getRecipeData()
     };
@@ -2083,7 +2125,8 @@
       language_style: 'language-style',
       music_style: 'music-style',
       audio_style: 'audio-style',
-      cta_style: 'cta-style'
+      cta_style: 'cta-style',
+      voice_id: 'voice-select'
     };
 
     Object.keys(map).forEach(function (key) {

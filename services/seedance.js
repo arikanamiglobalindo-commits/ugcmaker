@@ -28,22 +28,27 @@ const seedanceInput = (extra = {}) => ({ prompt, refs, resolution, ratio, durati
 // refStyle decides how "[Product 1]"-style labels in the prompt are rewritten.
 const MODELS = {
   'seedance-2.5': {
+    audioRef: 'urls',
     id: 'bytedance/seedance-2-5', resolutions: ['480p', '720p', '1080p'], ratios: SEEDANCE_RATIOS,
     maxDuration: 30, maxRefs: 30, buildInput: seedanceInput({ output_format: 'mp4' })
   },
   'seedance-2.0': {
+    audioRef: 'urls',
     id: 'bytedance/seedance-2', resolutions: ['480p', '720p', '1080p', '4k'], ratios: SEEDANCE_RATIOS,
     maxDuration: 15, maxRefs: 9, buildInput: seedanceInput()
   },
   'seedance-2.0-fast': {
+    audioRef: 'urls',
     id: 'bytedance/seedance-2-fast', resolutions: ['480p', '720p'], ratios: SEEDANCE_RATIOS,
     maxDuration: 15, maxRefs: 9, buildInput: seedanceInput()
   },
   'seedance-2.0-mini': {
+    audioRef: 'urls',
     id: 'bytedance/seedance-2-mini', resolutions: ['480p', '720p'], ratios: SEEDANCE_RATIOS,
     maxDuration: 15, maxRefs: 9, buildInput: seedanceInput()
   },
   'kling-4.0': {
+    audioRef: 'kling',
     id: 'kling-4.0/reference-to-video', resolutions: ['720p', '1080p'], ratios: ['16:9', '9:16', '1:1', '21:9', 'adaptive'],
     maxDuration: 30, maxRefs: 10, refStyle: 'kling',
     buildInput: ({ prompt, refs, resolution, ratio, duration }) => ({
@@ -58,6 +63,7 @@ const MODELS = {
     })
   },
   'vidu-q4': {
+    audioRef: 'urls',
     id: 'vidu-q4/reference-to-video', resolutions: ['720p', '1080p', '4k'], ratios: ['16:9', '9:16', '1:1', '4:3', '3:4'],
     maxDuration: 16, maxRefs: 15, refStyle: 'numbered', requiresRefs: true,
     buildInput: ({ prompt, refs, resolution, ratio, duration }) => ({
@@ -86,6 +92,7 @@ const MODELS = {
     })
   },
   'minimax-h3': {
+    audioRef: 'urls',
     // H3 uses its own resolution names: 768P (shown as 720p) and 2K (shown as 1080p).
     id: 'minimax-h3/reference-to-video', resolutions: ['720p', '1080p'], ratios: SEEDANCE_RATIOS,
     maxDuration: 15, maxRefs: 9, refStyle: 'numbered',
@@ -95,6 +102,63 @@ const MODELS = {
       return input;
     }
   }
+};
+
+// Curated ElevenLabs voices (ids from the KIE AI ElevenLabs docs).
+const VOICE_IDS = new Set([
+  'TX3LPaxmHKxFdv7VOQHJ', '1SM7GgM6IMuvQlz2BwM3', 'UgBBYS2sOqTuMpoF3BR0', 'vBKc2FfBKJfcZNyEt1n6',
+  'DTKMou8ccj1ZaWGBiotd', 'Sq93GQT4X1lKDXsQcixO', 'nPczCjzI2devNBz1zQrb', 'EkK5I93UQWFDigLMpZcX',
+  'BZgkqPqms7Kj9ulSkVzn', 'kPzsL2i3teMYv0FxEYQ6', 'lcMyyd2HUfFzxdCaC4Ta', 'hpp4J3VqNfWAUOO0d1Us',
+  'FGY2WhTYpPnrIDTdsKH5', '5l5f8iK3YPeGga21rQIX', 'g6xIsTj2HwM6VR4iXFCw', '6aDn1KB0hjpdcocrUkmq'
+]);
+
+const VOICE_FALLBACK_TEXT = {
+  id: 'Hai semuanya! Hari ini aku mau kasih rekomendasi produk favorit aku, langsung aja ya.',
+  en: 'Hey everyone! Today I want to show you one of my favorite products, let me show you.'
+};
+
+// A short sample (about 6-10 seconds) is enough: the video models use it as the
+// voice character for the creator, and all of them accept clips of 3-12 seconds.
+const buildVoiceSampleText = (script, lang) => {
+  const clean = String(script || '').replace(/\s+/g, ' ').trim();
+  if (clean.length < 40) return VOICE_FALLBACK_TEXT[lang] || VOICE_FALLBACK_TEXT.id;
+  if (clean.length <= 150) return clean;
+  const cut = clean.slice(0, 150);
+  const sentenceEnd = Math.max(cut.lastIndexOf('. '), cut.lastIndexOf('! '), cut.lastIndexOf('? '));
+  if (sentenceEnd >= 60) return cut.slice(0, sentenceEnd + 1);
+  return cut.replace(/\s+\S*$/, '') + '.';
+};
+
+const voiceCache = new Map();
+
+const generateVoiceSample = async ({ voiceId, script, language, apiKey, baseUrl }) => {
+  const lang = /english/i.test(language || '') ? 'en' : 'id';
+  const text = buildVoiceSampleText(script, lang);
+  const cacheKey = `${voiceId}|${lang}|${text}`;
+  if (voiceCache.has(cacheKey)) return voiceCache.get(cacheKey);
+
+  const created = await kieRequest(`${baseUrl}/api/v1/jobs/createTask`, apiKey, {
+    method: 'POST',
+    body: JSON.stringify({
+      model: 'elevenlabs/text-to-speech-turbo-2-5',
+      input: { text, voice: voiceId, language_code: lang, stability: 0.5, similarity_boost: 0.75 }
+    })
+  });
+  const taskId = created.data?.taskId;
+  if (!taskId) throw new Error('ElevenLabs tidak mengembalikan task ID.');
+
+  for (let attempt = 0; attempt < 45; attempt++) {
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+    const status = await pollTaskStatus(taskId);
+    if (status.status === 'completed' && status.video_url) {
+      voiceCache.set(cacheKey, status.video_url);
+      return status.video_url;
+    }
+    if (status.status === 'failed') {
+      throw new Error(`Gagal membuat suara ElevenLabs: ${status.error || 'unknown error'}`);
+    }
+  }
+  throw new Error('Pembuatan suara ElevenLabs terlalu lama. Coba lagi.');
 };
 
 const REF_LABELS = { product: 'Product', model: 'Creator', background: 'Background' };
@@ -321,6 +385,20 @@ const createVideoTask = async (prompt, imageInputs, options = {}) => {
     if (finalPrompt.length > budget) finalPrompt = finalPrompt.slice(0, budget).replace(/\s+\S*$/, '');
   }
 
+  let voiceUrl = null;
+  if (options.voice_id && VOICE_IDS.has(options.voice_id)) {
+    if (!model.audioRef) {
+      throw new Error('Model ini belum mendukung pilihan suara ElevenLabs. Pilih "Bawaan model" atau ganti model.');
+    }
+    voiceUrl = await generateVoiceSample({
+      voiceId: options.voice_id, script: options.script, language: options.language, apiKey, baseUrl
+    });
+    const voiceLine = model.audioRef === 'kling'
+      ? 'Creator berbicara dengan suara @CreatorVoice untuk semua dialog.'
+      : 'Suara creator: gunakan karakter suara dari reference audio 1 untuk semua dialog (warna suara, aksen, dan gaya bicara).';
+    finalPrompt = `${finalPrompt}\n${voiceLine}`;
+  }
+
   const input = model.buildInput({
     prompt: rewriteReferences(finalPrompt, chosenInputs, model.refStyle),
     refs: referenceUrls,
@@ -328,6 +406,13 @@ const createVideoTask = async (prompt, imageInputs, options = {}) => {
     ratio,
     duration: parseDuration(options.duration, model.maxDuration)
   });
+  if (voiceUrl) {
+    if (model.audioRef === 'kling') {
+      input.voices = [{ name: 'CreatorVoice', audio_url: voiceUrl }];
+    } else {
+      input.reference_audio_urls = [voiceUrl];
+    }
+  }
 
   const data = await kieRequest(`${baseUrl}/api/v1/jobs/createTask`, apiKey, {
     method: 'POST',

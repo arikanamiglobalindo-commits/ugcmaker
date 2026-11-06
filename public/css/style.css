@@ -3775,3 +3775,10 @@ select.form-select:focus,
 .ugc-cost-estimate span { color: #6e6e73; }
 .ugc-cost-estimate strong { color: #0071e3; font-size: 15px; }
 .ugc-cost-estimate small { flex-basis: 100%; color: #6e6e73; font-size: 12px; }
+
+.ugc-voice-field { grid-column: 1 / -1; }
+.ugc-voice-row { display: flex; gap: 8px; }
+.ugc-voice-row .form-select { flex: 1; min-width: 0; }
+.ugc-voice-preview { flex: 0 0 44px; padding: 0; border-radius: 10px; background: #eef5ff; color: #0071e3; font-size: 14px; }
+.ugc-voice-preview:disabled { opacity: .4; cursor: not-allowed; }
+#voice-hint.is-warning { color: #b25000; }

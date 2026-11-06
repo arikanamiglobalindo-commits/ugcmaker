@@ -16,6 +16,7 @@ Need an API key? Get one from the <a href="https://kie.ai/api-key" target="_blan
 
 - Product, creator, and background image references
 - KIE AI models: Seedance 2.5 / 2.0 / 2.0 Fast / 2.0 Mini, Kling 4.0 / 4.0 Flash / 3.0 / 3.0 Turbo, Vidu Q4 and MiniMax H3
+- Selectable ElevenLabs creator voice (via KIE AI) for Seedance, Kling 4.0, Vidu Q4 and MiniMax H3
 - UGC presets such as product demo, unboxing, testimonial, ASMR, and affiliate selling
 - Configurable language, voice tone, music, resolution, ratio, and duration
 - Editable advanced prompt with visual reference mentions
