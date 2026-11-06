@@ -5,7 +5,7 @@ const sharp = require('sharp');
 const { getSettings } = require('../database');
 
 const DEFAULT_BASE_URL = 'https://api.kie.ai';
-const UPLOAD_BASE_URL = 'https://kieai.redpandaai.co';
+const UPLOAD_BASE_URL = process.env.KIE_UPLOAD_URL || 'https://kieai.redpandaai.co';
 
 const normalizeBaseUrl = (baseUrl) => {
   let url = String(baseUrl || '').trim().replace(/\/+$/, '');
@@ -16,12 +16,106 @@ const normalizeBaseUrl = (baseUrl) => {
   return url.replace(/\/api(\/v\d+)?$/, '');
 };
 
-// Per-model limits from the KIE AI docs.
+const SEEDANCE_RATIOS = ['1:1', '4:3', '3:4', '16:9', '9:16', '21:9', 'adaptive'];
+
+const seedanceInput = (extra = {}) => ({ prompt, refs, resolution, ratio, duration }) => {
+  const input = { prompt, generate_audio: true, resolution, aspect_ratio: ratio, duration, ...extra };
+  if (refs.length > 0) input.reference_image_urls = refs;
+  return input;
+};
+
+// Per-model limits and request format, taken from the KIE AI docs.
+// refStyle decides how "[Product 1]"-style labels in the prompt are rewritten.
 const MODELS = {
-  'seedance-2.5': { id: 'bytedance/seedance-2-5', resolutions: ['480p', '720p', '1080p'], maxDuration: 30, maxRefs: 30, outputFormat: true },
-  'seedance-2.0': { id: 'bytedance/seedance-2', resolutions: ['480p', '720p', '1080p', '4k'], maxDuration: 15, maxRefs: 9 },
-  'seedance-2.0-fast': { id: 'bytedance/seedance-2-fast', resolutions: ['480p', '720p'], maxDuration: 15, maxRefs: 9 },
-  'seedance-2.0-mini': { id: 'bytedance/seedance-2-mini', resolutions: ['480p', '720p'], maxDuration: 15, maxRefs: 9 }
+  'seedance-2.5': {
+    id: 'bytedance/seedance-2-5', resolutions: ['480p', '720p', '1080p'], ratios: SEEDANCE_RATIOS,
+    maxDuration: 30, maxRefs: 30, buildInput: seedanceInput({ output_format: 'mp4' })
+  },
+  'seedance-2.0': {
+    id: 'bytedance/seedance-2', resolutions: ['480p', '720p', '1080p', '4k'], ratios: SEEDANCE_RATIOS,
+    maxDuration: 15, maxRefs: 9, buildInput: seedanceInput()
+  },
+  'seedance-2.0-fast': {
+    id: 'bytedance/seedance-2-fast', resolutions: ['480p', '720p'], ratios: SEEDANCE_RATIOS,
+    maxDuration: 15, maxRefs: 9, buildInput: seedanceInput()
+  },
+  'seedance-2.0-mini': {
+    id: 'bytedance/seedance-2-mini', resolutions: ['480p', '720p'], ratios: SEEDANCE_RATIOS,
+    maxDuration: 15, maxRefs: 9, buildInput: seedanceInput()
+  },
+  'kling-4.0': {
+    id: 'kling-4.0/reference-to-video', resolutions: ['720p', '1080p'], ratios: ['16:9', '9:16', '1:1', '21:9', 'adaptive'],
+    maxDuration: 30, maxRefs: 10, refStyle: 'kling',
+    buildInput: ({ prompt, refs, resolution, ratio, duration }) => ({
+      prompt, duration, resolution, aspect_ratio: ratio === 'adaptive' ? 'auto' : ratio, image_urls: refs
+    })
+  },
+  'kling-4.0-flash': {
+    id: 'kling-4.0/flash-reference-to-video', resolutions: ['720p'], ratios: ['16:9', '9:16', '1:1', '21:9', 'adaptive'],
+    maxDuration: 20, maxRefs: 10, refStyle: 'kling',
+    buildInput: ({ prompt, refs, ratio, duration }) => ({
+      prompt, duration, resolution: '720p', aspect_ratio: ratio === 'adaptive' ? 'auto' : ratio, image_urls: refs
+    })
+  },
+  'vidu-q4': {
+    id: 'vidu-q4/reference-to-video', resolutions: ['720p', '1080p', '4k'], ratios: ['16:9', '9:16', '1:1', '4:3', '3:4'],
+    maxDuration: 16, maxRefs: 15, refStyle: 'numbered', requiresRefs: true,
+    buildInput: ({ prompt, refs, resolution, ratio, duration }) => ({
+      prompt, duration, resolution, aspect_ratio: ratio, audio: true, reference_image_urls: refs
+    })
+  },
+  'kling-3.0': {
+    id: 'kling-3.0-omni/reference-to-video', resolutions: ['720p', '1080p', '4k'], ratios: ['16:9', '9:16', '1:1'],
+    maxDuration: 15, maxRefs: 7, maxPrompt: 3000, refStyle: 'numbered', requiresRefs: true,
+    buildInput: ({ prompt, refs, resolution, ratio, duration }) => ({
+      prompt, image_urls: refs, duration, resolution, aspect_ratio: ratio, audio: true
+    })
+  },
+  'kling-3.0-turbo': {
+    // Image-to-video from a single first frame; audio is always included.
+    // Uses the creator photo if there is one, otherwise the product photo.
+    id: 'kling/v3-turbo-image-to-video', resolutions: ['720p', '1080p'],
+    ratios: ['1:1', '4:3', '3:4', '16:9', '9:16', '21:9', 'adaptive'],
+    maxDuration: 15, maxRefs: 1, maxPrompt: 2400, requiresRefs: true,
+    pickRefs: (inputs) => {
+      const creator = inputs.find((a) => a && a.type === 'model');
+      return [creator || inputs[0]].filter(Boolean);
+    },
+    buildInput: ({ prompt, refs, resolution, duration }) => ({
+      prompt, image_urls: refs, duration: String(duration), resolution
+    })
+  },
+  'minimax-h3': {
+    // H3 uses its own resolution names: 768P (shown as 720p) and 2K (shown as 1080p).
+    id: 'minimax-h3/reference-to-video', resolutions: ['720p', '1080p'], ratios: SEEDANCE_RATIOS,
+    maxDuration: 15, maxRefs: 9, refStyle: 'numbered',
+    buildInput: ({ prompt, refs, resolution, ratio, duration }) => {
+      const input = { prompt, duration, resolution: resolution === '1080p' ? '2K' : '768P', aspect_ratio: ratio };
+      if (refs.length > 0) input.reference_image_urls = refs;
+      return input;
+    }
+  }
+};
+
+const REF_LABELS = { product: 'Product', model: 'Creator', background: 'Background' };
+
+// Rewrites "[Creator 1]"-style labels into the reference syntax a model understands,
+// based on the order the images are sent in.
+const rewriteReferences = (prompt, assets, refStyle) => {
+  if (!refStyle || !assets || assets.length === 0) return prompt;
+  const counters = {};
+  const mapping = [];
+  assets.forEach((asset, i) => {
+    if (typeof asset === 'string') return;
+    const label = REF_LABELS[asset.type] || 'Reference';
+    counters[label] = (counters[label] || 0) + 1;
+    const tag = refStyle === 'kling' ? `@image_${i + 1}` : `reference image ${i + 1}`;
+    mapping.push({ text: `[${label} ${counters[label]}]`, tag, label });
+  });
+  let out = prompt;
+  mapping.forEach(({ text, tag }) => { out = out.split(text).join(tag); });
+  const legend = mapping.map(({ tag, label }) => `${tag} = ${label.toLowerCase()}`).join(', ');
+  return legend ? `${out}\n\nReferences: ${legend}.` : out;
 };
 
 const getModelConfig = (model) => MODELS[model] || MODELS['seedance-2.5'];
@@ -105,7 +199,6 @@ const imageToPatternedDataUrl = async (asset) => {
   return `data:image/png;base64,${buffer.toString('base64')}`;
 };
 
-const VALID_RATIOS = ['1:1', '4:3', '3:4', '16:9', '9:16', '21:9', 'adaptive'];
 
 const kieRequest = async (url, apiKey, init = {}) => {
   const response = await fetch(url, {
@@ -158,8 +251,12 @@ const prepareImageForUpload = async (asset, patterned) => {
   const h = meta.height || 0;
   const minSide = Math.min(w, h);
   const maxSide = Math.max(w, h);
+  const ext = path.extname(asset.filepath || '').toLowerCase();
+  const isJpgOrPng = ['.jpg', '.jpeg', '.png'].includes(ext);
   if (w && h && minSide >= 300 && maxSide <= 6000) {
-    return imageToDataUrl(asset);
+    if (isJpgOrPng) return imageToDataUrl(asset);
+    const converted = await sharp(fullPath).rotate().png().toBuffer();
+    return `data:image/png;base64,${converted.toString('base64')}`;
   }
   const scale = minSide < 300 ? 300 / minSide : 6000 / maxSide;
   const buffer = await sharp(fullPath).rotate()
@@ -193,9 +290,13 @@ const createVideoTask = async (prompt, imageInputs, options = {}) => {
     throw new Error('API key not configured. Go to Settings to add your KIE AI API key.');
   }
 
+  const model = getModelConfig(options.ai_model);
+  const allInputs = imageInputs || [];
+  const chosenInputs = model.pickRefs ? model.pickRefs(allInputs) : allInputs.slice(0, model.maxRefs);
+
   const referenceUrls = [];
-  if (imageInputs && imageInputs.length > 0) {
-    for (const [i, input] of imageInputs.entries()) {
+  if (chosenInputs.length > 0) {
+    for (const [i, input] of chosenInputs.entries()) {
       if (typeof input === 'string' && /^https?:\/\//.test(input)) {
         referenceUrls.push(input);
         continue;
@@ -207,23 +308,26 @@ const createVideoTask = async (prompt, imageInputs, options = {}) => {
     }
   }
 
-  const model = getModelConfig(options.ai_model);
-  const resolution = model.resolutions.includes(options.resolution) ? options.resolution : '720p';
-  const ratio = VALID_RATIOS.includes(options.ratio) ? options.ratio : '9:16';
+  if (model.requiresRefs && referenceUrls.length === 0) {
+    throw new Error('Model ini butuh minimal satu gambar referensi (produk/creator/background).');
+  }
+  const resolution = model.resolutions.includes(options.resolution) ? options.resolution : model.resolutions.includes('720p') ? '720p' : model.resolutions[0];
+  const ratio = model.ratios.includes(options.ratio) ? options.ratio : '9:16';
 
-  const input = {
-    prompt,
-    generate_audio: true,
+  let finalPrompt = prompt;
+  if (model.maxPrompt) {
+    // Leave room for the reference legend added below.
+    const budget = model.maxPrompt - 200;
+    if (finalPrompt.length > budget) finalPrompt = finalPrompt.slice(0, budget).replace(/\s+\S*$/, '');
+  }
+
+  const input = model.buildInput({
+    prompt: rewriteReferences(finalPrompt, chosenInputs, model.refStyle),
+    refs: referenceUrls,
     resolution,
-    aspect_ratio: ratio,
+    ratio,
     duration: parseDuration(options.duration, model.maxDuration)
-  };
-  if (model.outputFormat) {
-    input.output_format = 'mp4';
-  }
-  if (referenceUrls.length > 0) {
-    input.reference_image_urls = referenceUrls.slice(0, model.maxRefs);
-  }
+  });
 
   const data = await kieRequest(`${baseUrl}/api/v1/jobs/createTask`, apiKey, {
     method: 'POST',

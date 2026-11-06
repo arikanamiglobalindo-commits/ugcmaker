@@ -41,17 +41,28 @@
     if (!model || !resolution) return;
 
     const limits = {
-      'seedance-2.5': { resolutions: ['480p', '720p', '1080p'], maxDuration: 30 },
-      'seedance-2.0': { resolutions: ['480p', '720p', '1080p', '4k'], maxDuration: 15 },
-      'seedance-2.0-fast': { resolutions: ['480p', '720p'], maxDuration: 15 },
-      'seedance-2.0-mini': { resolutions: ['480p', '720p'], maxDuration: 15 }
+      'seedance-2.5': { resolutions: ['480p', '720p', '1080p'], maxDuration: 30, ratios: ['1:1', '4:3', '3:4', '16:9', '9:16', '21:9', 'adaptive'] },
+      'seedance-2.0': { resolutions: ['480p', '720p', '1080p', '4k'], maxDuration: 15, ratios: ['1:1', '4:3', '3:4', '16:9', '9:16', '21:9', 'adaptive'] },
+      'seedance-2.0-fast': { resolutions: ['480p', '720p'], maxDuration: 15, ratios: ['1:1', '4:3', '3:4', '16:9', '9:16', '21:9', 'adaptive'] },
+      'seedance-2.0-mini': { resolutions: ['480p', '720p'], maxDuration: 15, ratios: ['1:1', '4:3', '3:4', '16:9', '9:16', '21:9', 'adaptive'] },
+      'kling-4.0': { resolutions: ['720p', '1080p'], maxDuration: 30, ratios: ['16:9', '9:16', '1:1', '21:9', 'adaptive'] },
+      'kling-4.0-flash': { resolutions: ['720p'], maxDuration: 20, ratios: ['16:9', '9:16', '1:1', '21:9', 'adaptive'] },
+      'kling-3.0': { resolutions: ['720p', '1080p', '4k'], maxDuration: 15, ratios: ['16:9', '9:16', '1:1'] },
+      'kling-3.0-turbo': { resolutions: ['720p', '1080p'], maxDuration: 15, ratios: ['1:1', '4:3', '3:4', '16:9', '9:16', '21:9', 'adaptive'] },
+      'vidu-q4': { resolutions: ['720p', '1080p', '4k'], maxDuration: 16, ratios: ['16:9', '9:16', '1:1', '4:3', '3:4'] },
+      'minimax-h3': { resolutions: ['720p', '1080p'], maxDuration: 15, ratios: ['1:1', '4:3', '3:4', '16:9', '9:16', '21:9', 'adaptive'] }
     };
     const duration = $('#def-duration');
 
     const sync = () => {
       const l = limits[model.value] || limits['seedance-2.5'];
       Array.from(resolution.options).forEach((opt) => { opt.disabled = !l.resolutions.includes(opt.value); });
-      if (!l.resolutions.includes(resolution.value)) resolution.value = '720p';
+      if (!l.resolutions.includes(resolution.value)) resolution.value = l.resolutions.includes('720p') ? '720p' : l.resolutions[0];
+      const ratio = $('#def-ratio');
+      if (ratio) {
+        Array.from(ratio.options).forEach((opt) => { opt.disabled = !l.ratios.includes(opt.value); });
+        if (!l.ratios.includes(ratio.value)) ratio.value = '9:16';
+      }
       if (duration) {
         Array.from(duration.options).forEach((opt) => { opt.disabled = parseInt(opt.value, 10) > l.maxDuration; });
         if (parseInt(duration.value, 10) > l.maxDuration) duration.value = l.maxDuration + 's';

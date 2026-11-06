@@ -44,7 +44,8 @@ router.post('/generate', async (req, res) => {
 
   try {
     const selectedAssetIds = (asset_ids || []).map((id) => parseInt(id, 10)).filter((id) => !Number.isNaN(id));
-    const selectedAssets = getAllAssets().filter((asset) => selectedAssetIds.includes(asset.id));
+    const assetsById = new Map(getAllAssets().map((asset) => [asset.id, asset]));
+    const selectedAssets = selectedAssetIds.map((id) => assetsById.get(id)).filter(Boolean);
 
     const taskOptions = {
       resolution: resolution || settings.default_resolution,

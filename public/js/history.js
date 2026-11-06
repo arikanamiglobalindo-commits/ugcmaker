@@ -227,6 +227,8 @@
   }
 
   function formatModel(model) {
+    var names = { 'kling-4.0': 'Kling 4.0', 'kling-4.0-flash': 'Kling 4.0 Flash', 'vidu-q4': 'Vidu Q4', 'minimax-h3': 'MiniMax H3', 'kling-3.0': 'Kling 3.0', 'kling-3.0-turbo': 'Kling 3.0 Turbo' };
+    if (names[model]) return names[model];
     if (model === 'seedance-2.0-mini') return 'Seedance 2.0 Mini';
     if (model === 'seedance-2.0-fast') return 'Seedance 2.0 Fast';
     if (model === 'seedance-2.0') return 'Seedance 2.0';
