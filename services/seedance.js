@@ -123,7 +123,16 @@ const kieRequest = async (url, apiKey, init = {}) => {
       { message: data.msg || data.message || '' },
       `KIE AI request failed (code ${code})`
     );
-    if (code === 401) err.message = 'API key KIE AI tidak valid. Periksa lagi di Settings.';
+    const reason = data.msg || data.message || '';
+    if (code === 401) {
+      if (/whitelist/i.test(reason)) {
+        err.message = 'API key KIE AI ditolak karena IP whitelist. Matikan IP whitelist pada key ini di kie.ai/api-key.';
+      } else if (/not authorized to use this model/i.test(reason)) {
+        err.message = 'API key KIE AI tidak diizinkan memakai model Seedance 2.5. Izinkan model ini pada key di kie.ai/api-key.';
+      } else {
+        err.message = `API key KIE AI ditolak: ${reason || 'key tidak valid'}. Periksa lagi di Settings.`;
+      }
+    }
     if (code === 402) err.message = 'Kredit KIE AI tidak cukup. Isi ulang kredit di kie.ai.';
     err.kieCode = code;
     throw err;
