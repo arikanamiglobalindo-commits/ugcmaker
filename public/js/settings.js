@@ -40,18 +40,21 @@
     const resolution = $('#def-resolution');
     if (!model || !resolution) return;
 
-    const sync = () => {
-      const fullHd = resolution.querySelector('option[value="1080p"]');
-      if (!fullHd) return;
+    const limits = {
+      'seedance-2.5': { resolutions: ['480p', '720p', '1080p'], maxDuration: 30 },
+      'seedance-2.0': { resolutions: ['480p', '720p', '1080p', '4k'], maxDuration: 15 },
+      'seedance-2.0-fast': { resolutions: ['480p', '720p'], maxDuration: 15 },
+      'seedance-2.0-mini': { resolutions: ['480p', '720p'], maxDuration: 15 }
+    };
+    const duration = $('#def-duration');
 
-      if (model.value === 'seedance-2.0-fast') {
-        fullHd.disabled = true;
-        if (resolution.value === '1080p') {
-          resolution.value = '720p';
-          showToast('Fast model uses 720p or lower', 'success');
-        }
-      } else {
-        fullHd.disabled = false;
+    const sync = () => {
+      const l = limits[model.value] || limits['seedance-2.5'];
+      Array.from(resolution.options).forEach((opt) => { opt.disabled = !l.resolutions.includes(opt.value); });
+      if (!l.resolutions.includes(resolution.value)) resolution.value = '720p';
+      if (duration) {
+        Array.from(duration.options).forEach((opt) => { opt.disabled = parseInt(opt.value, 10) > l.maxDuration; });
+        if (parseInt(duration.value, 10) > l.maxDuration) duration.value = l.maxDuration + 's';
       }
     };
 

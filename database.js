@@ -75,9 +75,10 @@ try { db.exec("ALTER TABLE videos ADD COLUMN thumbnail_path TEXT"); } catch (e) 
 try { db.exec("ALTER TABLE queue_items ADD COLUMN updated_at DATETIME"); } catch (e) {}
 // Migrate older BytePlus settings to KIE AI + Seedance 2.5.
 db.exec(`
+  UPDATE settings SET default_model = 'seedance-2.5'
+    WHERE api_base_url LIKE '%bytepluses%' AND default_model IN ('seedance-2.0', 'seedance-2.0-fast');
   UPDATE settings SET api_base_url = 'https://api.kie.ai'
     WHERE api_base_url IS NULL OR api_base_url = '' OR api_base_url LIKE '%bytepluses%';
-  UPDATE settings SET default_model = 'seedance-2.5' WHERE default_model LIKE 'seedance-2.0%';
 `);
 try { db.exec("ALTER TABLE queue_items ADD COLUMN started_at DATETIME"); } catch (e) {}
 try { db.exec("ALTER TABLE queue_items ADD COLUMN completed_at DATETIME"); } catch (e) {}

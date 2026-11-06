@@ -15,7 +15,7 @@ Need an API key? Get one from the <a href="https://kie.ai/api-key" target="_blan
 ## Features
 
 - Product, creator, and background image references
-- Seedance 2.5 via KIE AI (4–30 second videos, up to 1080p)
+- KIE AI models: Seedance 2.5 (up to 30s), Seedance 2.0 (up to 1080p/4K), Seedance 2.0 Fast and Seedance 2.0 Mini (cheapest)
 - UGC presets such as product demo, unboxing, testimonial, ASMR, and affiliate selling
 - Configurable language, voice tone, music, resolution, ratio, and duration
 - Editable advanced prompt with visual reference mentions

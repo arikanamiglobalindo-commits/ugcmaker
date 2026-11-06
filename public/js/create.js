@@ -692,6 +692,37 @@
     }
   }
 
+  var MODEL_LIMITS = {
+    'seedance-2.5': { resolutions: ['480p', '720p', '1080p'], maxDuration: 30 },
+    'seedance-2.0': { resolutions: ['480p', '720p', '1080p', '4k'], maxDuration: 15 },
+    'seedance-2.0-fast': { resolutions: ['480p', '720p'], maxDuration: 15 },
+    'seedance-2.0-mini': { resolutions: ['480p', '720p'], maxDuration: 15 }
+  };
+
+  function applyModelLimits(model, resSelect, durSelect, slider, display) {
+    var limits = MODEL_LIMITS[model] || MODEL_LIMITS['seedance-2.5'];
+    if (resSelect) {
+      Array.prototype.forEach.call(resSelect.options, function (opt) {
+        opt.disabled = limits.resolutions.indexOf(opt.value) === -1;
+      });
+      if (limits.resolutions.indexOf(resSelect.value) === -1) resSelect.value = '720p';
+    }
+    if (durSelect) {
+      Array.prototype.forEach.call(durSelect.options, function (opt) {
+        opt.disabled = parseInt(opt.value, 10) > limits.maxDuration;
+      });
+      if (parseInt(durSelect.value, 10) > limits.maxDuration) {
+        durSelect.value = String(limits.maxDuration) + (String(durSelect.value).indexOf('s') > -1 ? 's' : '');
+      }
+    }
+    if (slider) {
+      slider.max = String(limits.maxDuration);
+      if (parseInt(slider.value, 10) > limits.maxDuration) slider.value = String(limits.maxDuration);
+      if (durSelect) slider.value = parseInt(durSelect.value, 10);
+      if (display) display.textContent = slider.value + 's';
+    }
+  }
+
   function setupModelSelector() {
     var select = $('#ai-model-select');
     var trigger = $('#model-selector');
@@ -703,24 +734,9 @@
       var resSelect = $('#resolution-select');
       var activeOption = options ? options.querySelector('.model-option[data-value="' + val + '"]') : null;
 
-      if (val === 'seedance-2.0-fast') {
-        if ($('#model-display-name')) $('#model-display-name').textContent = activeOption ? activeOption.dataset.name : 'Seedance 2.0 Fast';
-        if ($('#model-display-desc')) $('#model-display-desc').textContent = activeOption ? activeOption.dataset.desc : 'Fast draft mode';
-        if (resSelect) {
-          var opt = resSelect.querySelector('option[value="1080p"]');
-          if (opt) opt.disabled = true;
-          if (resSelect.value === '1080p') {
-            resSelect.value = '720p';
-          }
-        }
-      } else {
-        if ($('#model-display-name')) $('#model-display-name').textContent = activeOption ? activeOption.dataset.name : 'Seedance 2.0';
-        if ($('#model-display-desc')) $('#model-display-desc').textContent = activeOption ? activeOption.dataset.desc : 'Quality mode';
-        if (resSelect) {
-          var opt2 = resSelect.querySelector('option[value="1080p"]');
-          if (opt2) opt2.disabled = false;
-        }
-      }
+      if ($('#model-display-name')) $('#model-display-name').textContent = activeOption ? activeOption.dataset.name : val;
+      if ($('#model-display-desc')) $('#model-display-desc').textContent = activeOption ? activeOption.dataset.desc : '';
+      applyModelLimits(val, resSelect, $('#duration-select'), $('#duration-slider'), $('#duration-display'));
 
       if (options) {
         options.querySelectorAll('.model-option').forEach(function (option) {

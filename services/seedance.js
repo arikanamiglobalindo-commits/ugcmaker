@@ -16,17 +16,20 @@ const normalizeBaseUrl = (baseUrl) => {
   return url.replace(/\/api(\/v\d+)?$/, '');
 };
 
-const mapSeedanceModel = (model) => {
-  const modelMap = {
-    'seedance-2.5': 'bytedance/seedance-2-5'
-  };
-  return modelMap[model] || 'bytedance/seedance-2-5';
+// Per-model limits from the KIE AI docs.
+const MODELS = {
+  'seedance-2.5': { id: 'bytedance/seedance-2-5', resolutions: ['480p', '720p', '1080p'], maxDuration: 30, maxRefs: 30, outputFormat: true },
+  'seedance-2.0': { id: 'bytedance/seedance-2', resolutions: ['480p', '720p', '1080p', '4k'], maxDuration: 15, maxRefs: 9 },
+  'seedance-2.0-fast': { id: 'bytedance/seedance-2-fast', resolutions: ['480p', '720p'], maxDuration: 15, maxRefs: 9 },
+  'seedance-2.0-mini': { id: 'bytedance/seedance-2-mini', resolutions: ['480p', '720p'], maxDuration: 15, maxRefs: 9 }
 };
 
-const parseDuration = (duration) => {
+const getModelConfig = (model) => MODELS[model] || MODELS['seedance-2.5'];
+
+const parseDuration = (duration, maxDuration = 30) => {
   const value = parseInt(String(duration || '5').replace('s', ''), 10);
   if (Number.isNaN(value)) return 5;
-  return Math.min(30, Math.max(4, value));
+  return Math.min(maxDuration, Math.max(4, value));
 };
 
 const createApiError = (errorData, fallback) => {
@@ -103,7 +106,6 @@ const imageToPatternedDataUrl = async (asset) => {
 };
 
 const VALID_RATIOS = ['1:1', '4:3', '3:4', '16:9', '9:16', '21:9', 'adaptive'];
-const VALID_RESOLUTIONS = ['480p', '720p', '1080p'];
 
 const kieRequest = async (url, apiKey, init = {}) => {
   const response = await fetch(url, {
@@ -128,7 +130,7 @@ const kieRequest = async (url, apiKey, init = {}) => {
       if (/whitelist/i.test(reason)) {
         err.message = 'API key KIE AI ditolak karena IP whitelist. Matikan IP whitelist pada key ini di kie.ai/api-key.';
       } else if (/not authorized to use this model/i.test(reason)) {
-        err.message = 'API key KIE AI tidak diizinkan memakai model Seedance 2.5. Izinkan model ini pada key di kie.ai/api-key.';
+        err.message = 'API key KIE AI tidak diizinkan memakai model ini. Izinkan model tersebut pada key di kie.ai/api-key.';
       } else {
         err.message = `API key KIE AI ditolak: ${reason || 'key tidak valid'}. Periksa lagi di Settings.`;
       }
@@ -205,7 +207,8 @@ const createVideoTask = async (prompt, imageInputs, options = {}) => {
     }
   }
 
-  const resolution = VALID_RESOLUTIONS.includes(options.resolution) ? options.resolution : '720p';
+  const model = getModelConfig(options.ai_model);
+  const resolution = model.resolutions.includes(options.resolution) ? options.resolution : '720p';
   const ratio = VALID_RATIOS.includes(options.ratio) ? options.ratio : '9:16';
 
   const input = {
@@ -213,17 +216,19 @@ const createVideoTask = async (prompt, imageInputs, options = {}) => {
     generate_audio: true,
     resolution,
     aspect_ratio: ratio,
-    duration: parseDuration(options.duration),
-    output_format: 'mp4'
+    duration: parseDuration(options.duration, model.maxDuration)
   };
+  if (model.outputFormat) {
+    input.output_format = 'mp4';
+  }
   if (referenceUrls.length > 0) {
-    input.reference_image_urls = referenceUrls.slice(0, 30);
+    input.reference_image_urls = referenceUrls.slice(0, model.maxRefs);
   }
 
   const data = await kieRequest(`${baseUrl}/api/v1/jobs/createTask`, apiKey, {
     method: 'POST',
     body: JSON.stringify({
-      model: mapSeedanceModel(options.ai_model),
+      model: model.id,
       input
     })
   });
@@ -265,6 +270,7 @@ const pollTaskStatus = async (jobId) => {
 };
 
 module.exports = {
+  MODELS,
   createVideoTask,
   pollTaskStatus,
   imageToPatternedDataUrl
