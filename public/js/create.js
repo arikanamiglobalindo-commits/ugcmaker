@@ -131,7 +131,9 @@
     if (seconds <= 6) return 2;
     if (seconds <= 10) return 3;
     if (seconds <= 13) return 4;
-    return 5;
+    if (seconds <= 18) return 5;
+    if (seconds <= 24) return 6;
+    return 7;
   }
 
   function getShotPlan(format, duration, cta) {
@@ -1543,7 +1545,7 @@
   function getSelectedModel() {
     var select = $('#ai-model-select');
     if (select) return select.value;
-    return 'seedance-2.0';
+    return 'seedance-2.5';
   }
 
   function renderPromptSummary(prompt) {

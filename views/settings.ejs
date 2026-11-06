@@ -13,11 +13,11 @@
           <input type="password" class="form-input" id="api-key-input" placeholder="Enter your API key">
           <button class="input-action" id="toggle-key" type="button">Show</button>
         </div>
-        <div class="form-hint">Required for video generation. Get your key from <a href="https://console.byteplus.com/ark/region:ark+ap-southeast-1/apiKey?apikey=%7B%7D" target="_blank" rel="noopener noreferrer">BytePlus console</a>.</div>
+        <div class="form-hint">Required for video generation. Get your key from <a href="https://kie.ai/api-key" target="_blank" rel="noopener noreferrer">KIE AI dashboard</a>.</div>
       </div>
       <div class="form-group">
         <label class="form-label">API Base URL</label>
-        <input type="text" class="form-input" id="api-url-input">
+        <input type="text" class="form-input" id="api-url-input" placeholder="https://api.kie.ai">
       </div>
     </div>
 
@@ -40,6 +40,7 @@
             <option value="1:1">1:1</option>
             <option value="4:3">4:3</option>
             <option value="3:4">3:4</option>
+            <option value="21:9">21:9</option>
             <option value="adaptive">Adaptive</option>
           </select>
         </div>
@@ -48,14 +49,13 @@
         <div class="form-group">
           <label class="form-label">Model</label>
           <select class="form-select" id="def-model">
-            <option value="seedance-2.0">Seedance 2.0</option>
-            <option value="seedance-2.0-fast">Seedance 2.0 Fast</option>
+            <option value="seedance-2.5">Seedance 2.5 (KIE AI)</option>
           </select>
         </div>
         <div class="form-group">
           <label class="form-label">Duration</label>
           <select class="form-select" id="def-duration">
-            <% for (let i = 4; i <= 15; i++) { %>
+            <% for (let i = 4; i <= 30; i++) { %>
               <option value="<%= i %>s"><%= i %>s</option>
             <% } %>
           </select>

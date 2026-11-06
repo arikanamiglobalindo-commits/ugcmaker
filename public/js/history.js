@@ -229,6 +229,7 @@
   function formatModel(model) {
     if (model === 'seedance-2.0-fast') return 'Seedance 2.0 Fast';
     if (model === 'seedance-2.0') return 'Seedance 2.0';
+    if (model === 'seedance-2.5') return 'Seedance 2.5';
     return model || '-';
   }
 

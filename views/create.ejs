@@ -118,27 +118,21 @@
           <div class="ugc-model-field">
             <label class="form-label">Model</label>
             <select class="recipe-input ugc-model-native" id="ai-model-select" aria-hidden="true" tabindex="-1">
-              <option value="seedance-2.0">Seedance 2.0</option>
-              <option value="seedance-2.0-fast">Seedance 2.0 Fast</option>
+              <option value="seedance-2.5">Seedance 2.5</option>
             </select>
             <div class="model-select-wrap compact-model-select" id="model-select-wrap">
               <button class="model-selector" id="model-selector" type="button" aria-haspopup="listbox" aria-expanded="false">
                 <span class="model-selector-icon"><img src="/images/Dreamina Seedance icon.png" alt=""></span>
                 <span class="model-selector-info">
-                  <span class="model-selector-name" id="model-display-name">Seedance 2.0</span>
-                  <span class="model-selector-desc" id="model-display-desc">Quality mode</span>
+                  <span class="model-selector-name" id="model-display-name">Seedance 2.5</span>
+                  <span class="model-selector-desc" id="model-display-desc">via KIE AI</span>
                 </span>
                 <i class="ti ti-chevron-right model-selector-arrow"></i>
               </button>
               <div class="model-options" id="model-options" role="listbox">
-                <button class="model-option active" type="button" role="option" aria-selected="true" data-value="seedance-2.0" data-name="Seedance 2.0" data-desc="Quality mode">
+                <button class="model-option active" type="button" role="option" aria-selected="true" data-value="seedance-2.5" data-name="Seedance 2.5" data-desc="via KIE AI">
                   <img src="/images/Dreamina Seedance icon.png" alt="">
-                  <span><strong>Seedance 2.0</strong><small>Quality mode</small></span>
-                  <i class="ti ti-check"></i>
-                </button>
-                <button class="model-option" type="button" role="option" aria-selected="false" data-value="seedance-2.0-fast" data-name="Seedance 2.0 Fast" data-desc="Fast draft mode">
-                  <img src="/images/Dreamina Seedance icon.png" alt="">
-                  <span><strong>Seedance 2.0 Fast</strong><small>Fast draft mode</small></span>
+                  <span><strong>Seedance 2.5</strong><small>via KIE AI</small></span>
                   <i class="ti ti-check"></i>
                 </button>
               </div>
@@ -161,17 +155,18 @@
               <option value="1:1">1:1 Square</option>
               <option value="4:3">4:3</option>
               <option value="3:4">3:4</option>
+              <option value="21:9">21:9 Cinematic</option>
               <option value="adaptive">Adaptive</option>
             </select>
           </div>
           <div>
             <label class="form-label">Duration</label>
             <select class="form-select recipe-input" id="duration-select">
-              <% for (let i = 4; i <= 15; i++) { %>
+              <% for (let i = 4; i <= 30; i++) { %>
                 <option value="<%= i %>" <%= i === 10 ? 'selected' : '' %>><%= i %>s</option>
               <% } %>
             </select>
-            <input type="range" id="duration-slider" class="recipe-input hidden-range" min="4" max="15" step="1" value="10">
+            <input type="range" id="duration-slider" class="recipe-input hidden-range" min="4" max="30" step="1" value="10">
             <span id="duration-display" class="range-value hidden-duration-value">10s</span>
           </div>
           </div>

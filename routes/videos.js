@@ -91,7 +91,7 @@ router.post('/generate', async (req, res) => {
 
 const startPolling = (videoId, jobId) => {
   let attempts = 0;
-  const maxAttempts = 120;
+  const maxAttempts = 240;
   const delays = [3000, 3000, 5000, 5000, 10000];
 
   const poll = async () => {
@@ -105,7 +105,12 @@ const startPolling = (videoId, jobId) => {
       const result = await pollTaskStatus(jobId);
 
       if (result.status === 'completed' && result.video_url) {
-        const localVideoPath = await downloadVideo(videoId, result.video_url);
+        let localVideoPath = null;
+        try {
+          localVideoPath = await downloadVideo(videoId, result.video_url);
+        } catch (downloadErr) {
+          console.error(`Video ${videoId}: local download failed, keeping remote URL.`, downloadErr.message);
+        }
         updateVideoStatus(videoId, {
           status: 'completed',
           video_url: result.video_url,

@@ -8,14 +8,14 @@
 <img width="3092" height="933" alt="a" src="https://github.com/user-attachments/assets/01576cc4-ecae-440a-83ad-a3072dabc3f2" />
 
 <p></p>
-UGC Video Maker is a local-first web application for generating affiliate-style UGC videos with the BytePlus ModelArk Seedance 2.0 API. It is designed for creators, affiliate teams, and product marketers who need a simple workflow: upload product references, choose a creator/background reference, write a short script, and generate a ready-to-review video.
+UGC Video Maker is a local-first web application for generating affiliate-style UGC videos with the Seedance 2.5 model through the KIE AI API. It is designed for creators, affiliate teams, and product marketers who need a simple workflow: upload product references, choose a creator/background reference, write a short script, and generate a ready-to-review video.
 
-Need API access or a Seedance 2.0 package? Open the <a href="https://bit.ly/4atg2fL" target="_blank">BytePlus ModelArk console</a>
+Need an API key? Get one from the <a href="https://kie.ai/api-key" target="_blank">KIE AI dashboard</a>. If you enable an IP whitelist on the key, add the IP of the machine running this app.
 
 ## Features
 
 - Product, creator, and background image references
-- Seedance 2.0 and Seedance 2.0 Fast model selection
+- Seedance 2.5 via KIE AI (4–30 second videos, up to 1080p)
 - UGC presets such as product demo, unboxing, testimonial, ASMR, and affiliate selling
 - Configurable language, voice tone, music, resolution, ratio, and duration
 - Editable advanced prompt with visual reference mentions
@@ -40,7 +40,7 @@ Need API access or a Seedance 2.0 package? Open the <a href="https://bit.ly/4atg
 
 - Node.js 18 or newer
 - npm
-- BytePlus ModelArk API key with access to Seedance 2.0
+- KIE AI API key with credits
 
 ## Getting Started
 
@@ -72,7 +72,7 @@ npm run dev
 
 Open the Settings page inside the app and configure:
 
-- BytePlus API key
+- KIE AI API key
 - API base URL
 - Default model
 - Default resolution
@@ -81,8 +81,10 @@ Open the Settings page inside the app and configure:
 Default API base URL:
 
 ```txt
-https://ark.ap-southeast.bytepluses.com/api/v3
+https://api.kie.ai
 ```
+
+Reference images are uploaded to KIE AI's temporary file storage (`kieai.redpandaai.co`, deleted after 24 hours) because the API only accepts image URLs.
 
 The API key is stored in the local SQLite database. Do not commit the database file to a public repository.
 
@@ -93,7 +95,7 @@ The API key is stored in the local SQLite database. Do not commit the database f
 ├── database.js          # SQLite schema and data helpers
 ├── server.js            # Express app entry point
 ├── routes/              # Page and API routes
-├── services/            # Seedance API and local media helpers
+├── services/            # KIE AI (Seedance 2.5) API and local media helpers
 ├── views/               # EJS pages and partials
 ├── public/              # CSS, client-side JS, and static images
 ├── uploads/             # User-uploaded reference images
@@ -115,4 +117,4 @@ These directories may contain private user images, generated videos, and API con
 
 - Keep generated media and API credentials private when sharing the project.
 - Use product images with clear lighting and minimal clutter for more consistent results.
-- Review model usage and pricing in the BytePlus console before running large batches.
+- Review model usage and pricing at https://kie.ai/pricing before running large batches.

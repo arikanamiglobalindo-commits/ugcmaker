@@ -4,25 +4,29 @@ const path = require('path');
 const sharp = require('sharp');
 const { getSettings } = require('../database');
 
+const DEFAULT_BASE_URL = 'https://api.kie.ai';
+const UPLOAD_BASE_URL = 'https://kieai.redpandaai.co';
+
 const normalizeBaseUrl = (baseUrl) => {
-  let url = (baseUrl || 'https://ark.ap-southeast.bytepluses.com/api/v3').replace(/\/+$/, '');
-  if (!url.includes('/api/v3')) {
-    url += '/api/v3';
+  let url = String(baseUrl || '').trim().replace(/\/+$/, '');
+  // Old BytePlus URLs (or empty) fall back to KIE AI.
+  if (!url || /bytepluses|byteplus|volces/i.test(url)) {
+    url = DEFAULT_BASE_URL;
   }
-  return url;
+  return url.replace(/\/api(\/v\d+)?$/, '');
 };
 
 const mapSeedanceModel = (model) => {
   const modelMap = {
-    'seedance-2.0': 'dreamina-seedance-2-0-260128',
-    'seedance-2.0-fast': 'dreamina-seedance-2-0-fast-260128'
+    'seedance-2.5': 'bytedance/seedance-2-5'
   };
-  return modelMap[model] || model || 'dreamina-seedance-2-0-260128';
+  return modelMap[model] || 'bytedance/seedance-2-5';
 };
 
 const parseDuration = (duration) => {
   const value = parseInt(String(duration || '5').replace('s', ''), 10);
-  return Number.isNaN(value) ? 5 : value;
+  if (Number.isNaN(value)) return 5;
+  return Math.min(30, Math.max(4, value));
 };
 
 const createApiError = (errorData, fallback) => {
@@ -98,62 +102,126 @@ const imageToPatternedDataUrl = async (asset) => {
   return `data:image/png;base64,${buffer.toString('base64')}`;
 };
 
+const VALID_RATIOS = ['1:1', '4:3', '3:4', '16:9', '9:16', '21:9', 'adaptive'];
+const VALID_RESOLUTIONS = ['480p', '720p', '1080p'];
+
+const kieRequest = async (url, apiKey, init = {}) => {
+  const response = await fetch(url, {
+    ...init,
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`,
+      ...(init.headers || {})
+    }
+  });
+
+  const data = await response.json().catch(() => ({}));
+  // KIE returns HTTP 200 even on errors; the real status is in data.code.
+  const code = data.code ?? response.status;
+  if (!response.ok || (code && code !== 200)) {
+    const err = createApiError(
+      { message: data.msg || data.message || '' },
+      `KIE AI request failed (code ${code})`
+    );
+    if (code === 401) err.message = 'API key KIE AI tidak valid. Periksa lagi di Settings.';
+    if (code === 402) err.message = 'Kredit KIE AI tidak cukup. Isi ulang kredit di kie.ai.';
+    err.kieCode = code;
+    throw err;
+  }
+  return data;
+};
+
+// KIE needs public image URLs, so local reference images are uploaded to
+// KIE's temporary file storage (files are deleted after 24 hours).
+const prepareImageForUpload = async (asset, patterned) => {
+  if (patterned) return imageToPatternedDataUrl(asset);
+
+  const fullPath = path.resolve(__dirname, '..', asset.filepath || '');
+  if (!fullPath.startsWith(path.resolve(__dirname, '..'))) {
+    throw new Error('Invalid asset path');
+  }
+
+  // Seedance 2.5 requires each side to be 300-6000 px; upscale/downscale if needed.
+  const meta = await sharp(fullPath).metadata();
+  const w = meta.width || 0;
+  const h = meta.height || 0;
+  const minSide = Math.min(w, h);
+  const maxSide = Math.max(w, h);
+  if (w && h && minSide >= 300 && maxSide <= 6000) {
+    return imageToDataUrl(asset);
+  }
+  const scale = minSide < 300 ? 300 / minSide : 6000 / maxSide;
+  const buffer = await sharp(fullPath).rotate()
+    .resize(Math.round(w * scale), Math.round(h * scale))
+    .png()
+    .toBuffer();
+  return `data:image/png;base64,${buffer.toString('base64')}`;
+};
+
+const uploadImageToKie = async (dataUrl, apiKey, index) => {
+  const ext = (dataUrl.match(/^data:image\/(\w+);/) || [])[1] || 'png';
+  const data = await kieRequest(`${UPLOAD_BASE_URL}/api/file-base64-upload`, apiKey, {
+    method: 'POST',
+    body: JSON.stringify({
+      base64Data: dataUrl,
+      uploadPath: 'ugcmaker/references',
+      fileName: `ref-${Date.now()}-${index}.${ext === 'jpeg' ? 'jpg' : ext}`
+    })
+  });
+  const url = data.data?.downloadUrl || data.data?.fileUrl;
+  if (!url) throw new Error('Upload gambar ke KIE AI gagal: tidak ada URL yang dikembalikan.');
+  return url;
+};
+
 const createVideoTask = async (prompt, imageInputs, options = {}) => {
   const settings = getSettings();
   const apiKey = settings.api_key;
   const baseUrl = normalizeBaseUrl(settings.api_base_url);
 
   if (!apiKey) {
-    throw new Error('API key not configured. Go to Settings to add your BytePlus API key.');
+    throw new Error('API key not configured. Go to Settings to add your KIE AI API key.');
   }
 
-  const content = [];
-
+  const referenceUrls = [];
   if (imageInputs && imageInputs.length > 0) {
-    for (const input of imageInputs) {
-      const url = typeof input === 'string'
+    for (const [i, input] of imageInputs.entries()) {
+      if (typeof input === 'string' && /^https?:\/\//.test(input)) {
+        referenceUrls.push(input);
+        continue;
+      }
+      const dataUrl = typeof input === 'string'
         ? input
-        : options.patternReferences
-          ? await imageToPatternedDataUrl(input)
-          : imageToDataUrl(input);
-      content.push({
-        type: 'image_url',
-        image_url: { url },
-        role: 'reference_image'
-      });
+        : await prepareImageForUpload(input, options.patternReferences);
+      referenceUrls.push(await uploadImageToKie(dataUrl, apiKey, i));
     }
   }
 
-  content.push({
-    type: 'text',
-    text: prompt
-  });
+  const resolution = VALID_RESOLUTIONS.includes(options.resolution) ? options.resolution : '720p';
+  const ratio = VALID_RATIOS.includes(options.ratio) ? options.ratio : '9:16';
 
-  const body = {
-    model: mapSeedanceModel(options.ai_model),
-    content,
-    resolution: options.resolution || '720p',
-    ratio: options.ratio || '9:16',
+  const input = {
+    prompt,
+    generate_audio: true,
+    resolution,
+    aspect_ratio: ratio,
     duration: parseDuration(options.duration),
-    watermark: false
+    output_format: 'mp4'
   };
-
-  const response = await fetch(`${baseUrl}/contents/generations/tasks`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`
-    },
-    body: JSON.stringify(body)
-  });
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw createApiError(errorData, `API request failed with status ${response.status}`);
+  if (referenceUrls.length > 0) {
+    input.reference_image_urls = referenceUrls.slice(0, 30);
   }
 
-  const data = await response.json();
-  return data.id || data.job_id || data.task_id;
+  const data = await kieRequest(`${baseUrl}/api/v1/jobs/createTask`, apiKey, {
+    method: 'POST',
+    body: JSON.stringify({
+      model: mapSeedanceModel(options.ai_model),
+      input
+    })
+  });
+
+  const taskId = data.data?.taskId;
+  if (!taskId) throw new Error('KIE AI tidak mengembalikan task ID.');
+  return taskId;
 };
 
 const pollTaskStatus = async (jobId) => {
@@ -161,32 +229,29 @@ const pollTaskStatus = async (jobId) => {
   const apiKey = settings.api_key;
   const baseUrl = normalizeBaseUrl(settings.api_base_url);
 
-  const response = await fetch(`${baseUrl}/contents/generations/tasks/${jobId}`, {
-    method: 'GET',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`
-    }
-  });
+  const data = await kieRequest(
+    `${baseUrl}/api/v1/jobs/recordInfo?taskId=${encodeURIComponent(jobId)}`,
+    apiKey,
+    { method: 'GET' }
+  );
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw createApiError(errorData, `Poll request failed with status ${response.status}`);
+  const record = data.data || {};
+  const state = record.state;
+
+  let videoUrl = null;
+  if (state === 'success') {
+    let result = record.resultJson;
+    if (typeof result === 'string') {
+      try { result = JSON.parse(result); } catch (e) { result = null; }
+    }
+    result = result || record.result || {};
+    videoUrl = (result.resultUrls && result.resultUrls[0]) || result.videoUrl || null;
   }
 
-  const data = await response.json();
-  const rawStatus = data.status;
-  const statusMap = {
-    succeeded: 'completed',
-    success: 'completed',
-    completed: 'completed',
-    failed: 'failed',
-    error: 'failed'
-  };
-
   return {
-    status: statusMap[rawStatus] || 'generating',
-    video_url: data.content?.video_url || data.content?.[0]?.url || data.output?.video_url || data.video_url || null,
-    error: data.error?.message || data.error || null
+    status: state === 'success' ? 'completed' : state === 'fail' ? 'failed' : 'generating',
+    video_url: videoUrl,
+    error: state === 'fail' ? (record.failMsg || `Generation failed (code ${record.failCode || '-'})`) : null
   };
 };
 
