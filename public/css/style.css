@@ -3758,3 +3758,20 @@ select.form-select:focus,
     grid-template-columns: 390px minmax(480px, 1fr) 280px;
   }
 }
+
+.ugc-cost-estimate {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  margin-top: 14px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: #eef5ff;
+  color: #1d1d1f;
+  font-size: 13px;
+}
+.ugc-cost-estimate:empty { display: none; }
+.ugc-cost-estimate span { color: #6e6e73; }
+.ugc-cost-estimate strong { color: #0071e3; font-size: 15px; }
+.ugc-cost-estimate small { flex-basis: 100%; color: #6e6e73; font-size: 12px; }

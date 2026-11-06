@@ -311,8 +311,46 @@
     };
   }
 
+  // Credits per second (image references, with audio) from kie.ai/pricing, 6 Nov 2026.
+  // 1 credit = $0.005. MiniMax H3 also charges 4 credits per input image.
+  var MODEL_PRICES = {
+    'seedance-2.5': { '480p': 28, '720p': 63, '1080p': 158 },
+    'seedance-2.0': { '480p': 19, '720p': 41, '1080p': 102, '4k': 208 },
+    'seedance-2.0-fast': { '480p': 11.7, '720p': 24.8 },
+    'seedance-2.0-mini': { '480p': 3.8, '720p': 8.2 },
+    'kling-4.0': { '720p': 28.5, '1080p': 42.5 },
+    'kling-4.0-flash': { '720p': 17 },
+    'kling-3.0': { '720p': 20.2, '1080p': 25.2, '4k': 75.5 },
+    'kling-3.0-turbo': { '720p': 20.2, '1080p': 25.2 },
+    'vidu-q4': { '720p': 15.2, '1080p': 19.2, '4k': 62.4 },
+    'minimax-h3': { '720p': 8, '1080p': 13 }
+  };
+  var CREDIT_USD = 0.005;
+
+  function formatNumber(n, digits) {
+    return Number(n).toLocaleString('id-ID', { maximumFractionDigits: digits === undefined ? 1 : digits });
+  }
+
+  function updateCostEstimate() {
+    var box = $('#cost-estimate');
+    if (!box) return;
+    var model = getSelectedModel();
+    var res = getValue('resolution-select', '720p');
+    var seconds = parseInt(($('#duration-slider') && $('#duration-slider').value) || getValue('duration-select', '10'), 10) || 0;
+    var perSecond = (MODEL_PRICES[model] || {})[res];
+    if (!perSecond) { box.textContent = ''; return; }
+    var images = state.selectedAssets.product.length + state.selectedAssets.model.length + state.selectedAssets.background.length;
+    if (model === 'kling-3.0-turbo') images = Math.min(images, 1);
+    var imageCost = model === 'minimax-h3' ? images * 4 : 0;
+    var total = perSecond * seconds + imageCost;
+    box.innerHTML = '<span>Perkiraan biaya</span><strong>' + formatNumber(total) + ' kredit</strong>' +
+      '<small>≈ $' + formatNumber(total * CREDIT_USD, 2) + ' · ' + formatNumber(perSecond) + ' kredit/detik × ' + seconds + ' detik' +
+      (imageCost ? ' + ' + imageCost + ' kredit foto' : '') + '</small>';
+  }
+
   function updatePromptPreview() {
     setPromptValue(buildSeedancePrompt());
+    updateCostEstimate();
   }
 
   function setPromptValue(value) {
