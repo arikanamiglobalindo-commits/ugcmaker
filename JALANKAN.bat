@@ -14,17 +14,18 @@ if errorlevel 1 (
   exit /b
 )
 
-if not exist "node_modules\" (
+if not exist "node_modules\.siap" (
   echo.
-  echo  Menyiapkan aplikasi untuk pertama kali. Tunggu beberapa menit...
+  echo  Menyiapkan aplikasi. Tunggu beberapa menit...
   echo.
-  call npm install
+  call npm install --no-audit --no-fund
   if errorlevel 1 (
     echo.
     echo  Persiapan gagal. Foto layar ini dan kirim ke Claude.
     pause
     exit /b
   )
+  echo ok> "node_modules\.siap"
 )
 
 echo.
