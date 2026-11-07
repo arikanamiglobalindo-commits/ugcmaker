@@ -3782,3 +3782,80 @@ select.form-select:focus,
 .ugc-voice-preview { flex: 0 0 44px; padding: 0; border-radius: 10px; background: #eef5ff; color: #0071e3; font-size: 14px; }
 .ugc-voice-preview:disabled { opacity: .4; cursor: not-allowed; }
 #voice-hint.is-warning { color: #b25000; }
+
+.topbar-brand { gap: 10px; }
+.topbar-brand-icon { display: block; width: 34px; height: 34px; border-radius: 9px; object-fit: cover; }
+.topbar-brand-name { font-size: 20px; font-weight: 700; letter-spacing: -0.02em; color: var(--text); white-space: nowrap; }
+
+/* ===== Dark theme (black background to match the BC logo) ===== */
+:root {
+  color-scheme: dark;
+  --primary: #3b82f6;
+  --primary-hover: #2563eb;
+  --bg: #0b0b0c;
+  --bg-page: #000000;
+  --surface: #161618;
+  --surface-strong: #1f1f22;
+  --border: rgba(255, 255, 255, 0.12);
+  --border-strong: rgba(255, 255, 255, 0.24);
+  --text: #f5f1e8;
+  --text-secondary: rgba(245, 241, 232, 0.72);
+  --text-tertiary: rgba(245, 241, 232, 0.48);
+}
+
+html, body { background: #000; color: var(--text); }
+
+.topbar { background: rgba(0, 0, 0, 0.86); border-bottom-color: var(--border); }
+.queue-panel { background: rgba(14, 14, 16, 0.96); }
+
+.topbar-logo, .topbar-icon-btn, .btn-secondary { background: var(--surface); color: var(--text); }
+.topbar-icon-btn:hover { background: var(--surface-strong); }
+
+input.form-input, textarea.form-input, select.form-select, .form-select, .form-input,
+.search-input, .recipe-input {
+  background-color: var(--surface);
+  color: var(--text);
+  border-color: var(--border);
+}
+input.form-input:hover, textarea.form-input:hover, select.form-select:hover,
+.prompt-editor:hover, .search-input:focus, .library-search-wrap:focus-within {
+  background-color: var(--surface-strong);
+}
+select option, select optgroup { background: #161618; color: var(--text); }
+select option:disabled { color: rgba(245, 241, 232, 0.35); }
+
+.model-selector, .model-select-wrap.open .model-selector { background-color: var(--surface); color: var(--text); }
+.model-options { background: #111113; border-color: var(--border); }
+.model-option { color: var(--text); }
+.model-option.active, .mention-option.active,
+.library-toggle button.active, .library-load-more:hover { background: rgba(59, 130, 246, 0.18); }
+.library-toggle button:hover { background: var(--surface-strong); }
+
+.ugc-upload-box, .ugc-background-row .upload-add, .primary-reference,
+.prompt-preview, .queue-item.running { background: var(--surface); }
+.ugc-upload-box:hover { background: var(--surface-strong); }
+.ugc-preview { background: #0b0b0c; }
+
+.video-card, .video-viewer-modal { background: #111113; }
+.video-card:hover { background: #18181b; }
+.empty-state { background: rgba(255, 255, 255, 0.04); }
+.video-thumb .play-icon { background: rgba(0, 0, 0, 0.7); color: #fff; }
+.history-thumb-placeholder i, .queue-thumb-placeholder { color: var(--text-tertiary); }
+
+.status-badge.generating { background: rgba(245, 158, 11, 0.18); color: #fbbf24; }
+.status-badge.failed { background: rgba(239, 68, 68, 0.18); color: #f87171; }
+
+.ugc-cost-estimate { background: rgba(59, 130, 246, 0.14); color: var(--text); }
+.ugc-cost-estimate span, .ugc-cost-estimate small { color: var(--text-secondary); }
+.ugc-cost-estimate strong { color: #60a5fa; }
+.ugc-voice-preview { background: rgba(59, 130, 246, 0.18); color: #60a5fa; }
+#voice-hint.is-warning { color: #fbbf24; }
+
+.mention-chip { background: var(--surface-strong); color: var(--text); }
+.topbar-brand-icon { box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.14); }
+.ugc-builder, .ugc-videos { background: #0b0b0c; border-color: var(--border); }
+.upload-add, .ugc-add-card, .ugc-upload-box { background: var(--surface); border-color: rgba(96, 165, 250, 0.45); color: #60a5fa; }
+.upload-add:hover, .ugc-add-card:hover { background: var(--surface-strong); }
+.ugc-step { border-color: var(--border); }
+.ugc-reference-grid .upload-add, .ugc-product-row .upload-add, .ugc-background-row .upload-add,
+.ugc-step .upload-add { background: var(--surface); border-color: rgba(96, 165, 250, 0.45); color: #60a5fa; }
