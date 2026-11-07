@@ -789,7 +789,7 @@
     if (preview) preview.disabled = !select.value;
     if (hint) {
       hint.textContent = supported
-        ? 'Pilih suara agar creator berbicara dengan karakter suara itu. Klik ▶ untuk mendengar contohnya.'
+        ? 'Semua suara berbicara Bahasa Indonesia. Klik ▶ untuk mendengar contohnya (pertama kali ±1 kredit, selanjutnya gratis).'
         : 'Model ini belum mendukung pilihan suara. Pakai Seedance, Kling 4.0, Vidu Q4, atau MiniMax H3.';
       hint.classList.toggle('is-warning', !supported);
     }
@@ -807,11 +807,30 @@
     preview.addEventListener('click', function () {
       if (!select.value) return;
       if (audio) { audio.pause(); audio = null; preview.textContent = '▶'; return; }
-      // Sample clips published by KIE AI for each ElevenLabs voice.
-      audio = new Audio('https://static.aiquickdraw.com/elevenlabs/voice/' + select.value + '.mp3');
-      preview.textContent = '■';
-      audio.addEventListener('ended', function () { audio = null; preview.textContent = '▶'; });
-      audio.play().catch(function () { audio = null; preview.textContent = '▶'; showToast('Contoh suara gagal diputar', 'error'); });
+      var lang = /english/i.test(getValue('language-style', 'Indonesian')) ? 'en' : 'id';
+      preview.disabled = true;
+      preview.textContent = '…';
+      // The first preview of each voice is generated in the selected language (about 1 credit),
+      // then saved locally so replaying it is free.
+      fetch('/api/voices/preview?voice=' + encodeURIComponent(select.value) + '&lang=' + lang)
+        .then(function (res) { return res.json(); })
+        .then(function (data) {
+          preview.disabled = false;
+          if (!data.url) throw new Error(data.error || 'Contoh suara gagal dibuat');
+          audio = new Audio(data.url);
+          preview.textContent = '■';
+          audio.addEventListener('ended', function () { audio = null; preview.textContent = '▶'; });
+          return audio.play();
+        })
+        .catch(function (err) {
+          preview.disabled = false;
+          // Fall back to KIE's built-in (English) sample so the voice character can still be heard.
+          showToast('Contoh Bahasa Indonesia belum bisa dibuat (' + (err.message || 'error') + '). Memutar contoh bawaan berbahasa Inggris.', 'error');
+          audio = new Audio('https://static.aiquickdraw.com/elevenlabs/voice/' + select.value + '.mp3');
+          preview.textContent = '■';
+          audio.addEventListener('ended', function () { audio = null; preview.textContent = '▶'; });
+          audio.play().catch(function () { audio = null; preview.textContent = '▶'; });
+        });
     });
   }
 

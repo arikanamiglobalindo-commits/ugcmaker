@@ -131,9 +131,11 @@ const buildVoiceSampleText = (script, lang) => {
 
 const voiceCache = new Map();
 
-const generateVoiceSample = async ({ voiceId, script, language, apiKey, baseUrl }) => {
-  const lang = /english/i.test(language || '') ? 'en' : 'id';
-  const text = buildVoiceSampleText(script, lang);
+const toVoiceLang = (language) => (/english|^en$/i.test(language || '') ? 'en' : 'id');
+
+const generateVoiceSample = async ({ voiceId, script, language, apiKey, baseUrl, text: fixedText }) => {
+  const lang = toVoiceLang(language);
+  const text = fixedText || buildVoiceSampleText(script, lang);
   const cacheKey = `${voiceId}|${lang}|${text}`;
   if (voiceCache.has(cacheKey)) return voiceCache.get(cacheKey);
 
@@ -155,10 +157,33 @@ const generateVoiceSample = async ({ voiceId, script, language, apiKey, baseUrl 
       return status.video_url;
     }
     if (status.status === 'failed') {
-      throw new Error(`Gagal membuat suara ElevenLabs: ${status.error || 'unknown error'}`);
+      throw new Error(`Gagal membuat suara ElevenLabs: ${status.error || 'unknown error'}. Video belum dibuat dan kredit video tidak terpakai. Coba lagi nanti, atau pilih suara "Bawaan model".`);
     }
   }
   throw new Error('Pembuatan suara ElevenLabs terlalu lama. Coba lagi.');
+};
+
+const VOICE_PREVIEW_TEXT = {
+  id: 'Halo semuanya! Ini contoh suara aku. Cocok banget buat review produk kamu, santai dan natural.',
+  en: 'Hi everyone! This is a sample of my voice. Perfect for your product reviews, relaxed and natural.'
+};
+
+// Creates (once) a short preview of a voice in the chosen language and returns its remote URL.
+const createVoicePreview = async (voiceId, language) => {
+  if (!VOICE_IDS.has(voiceId)) throw new Error('Suara tidak dikenal.');
+  const settings = getSettings();
+  if (!settings.api_key) throw new Error('API key belum diisi di Settings.');
+  const lang = toVoiceLang(language);
+  let url;
+  try {
+    url = await generateVoiceSample({
+      voiceId, language: lang, text: VOICE_PREVIEW_TEXT[lang],
+      apiKey: settings.api_key, baseUrl: normalizeBaseUrl(settings.api_base_url)
+    });
+  } catch (err) {
+    throw new Error(/API key/i.test(err.message) ? err.message : 'ElevenLabs di KIE sedang bermasalah, coba lagi nanti');
+  }
+  return { url, lang };
 };
 
 const REF_LABELS = { product: 'Product', model: 'Creator', background: 'Background' };
@@ -460,6 +485,7 @@ const pollTaskStatus = async (jobId) => {
 
 module.exports = {
   MODELS,
+  createVoicePreview,
   createVideoTask,
   pollTaskStatus,
   imageToPatternedDataUrl

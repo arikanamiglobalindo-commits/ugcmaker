@@ -33,6 +33,23 @@ const downloadVideo = async (videoId, videoUrl) => {
   return toPublicPath(outputPath);
 };
 
+// Voice previews are saved locally so each one is generated (and paid for) only once.
+const VOICE_DIR = path.join(DOWNLOAD_ROOT, 'voices');
+
+const getSavedVoicePreview = (voiceId, lang) => {
+  const file = path.join(VOICE_DIR, `${voiceId}-${lang}.mp3`);
+  return fs.existsSync(file) && fs.statSync(file).size > 0 ? toPublicPath(file) : null;
+};
+
+const saveVoicePreview = async (voiceId, lang, audioUrl) => {
+  fs.mkdirSync(VOICE_DIR, { recursive: true });
+  const file = path.join(VOICE_DIR, `${voiceId}-${lang}.mp3`);
+  const response = await fetch(audioUrl);
+  if (!response.ok) throw new Error(`Failed to download voice preview (${response.status})`);
+  await pipeline(response.body, fs.createWriteStream(file));
+  return toPublicPath(file);
+};
+
 const saveThumbnail = (videoId, dataUrl) => {
   ensureDirs();
   const match = String(dataUrl || '').match(/^data:image\/(png|jpeg|jpg|webp);base64,(.+)$/);
@@ -48,5 +65,7 @@ const saveThumbnail = (videoId, dataUrl) => {
 
 module.exports = {
   downloadVideo,
-  saveThumbnail
+  saveThumbnail,
+  getSavedVoicePreview,
+  saveVoicePreview
 };

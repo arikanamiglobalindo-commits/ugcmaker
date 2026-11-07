@@ -24,6 +24,28 @@ app.use('/api/assets', assetRoutes);
 app.use('/api/videos', videoRoutes);
 app.use('/api/queue', queueRoutes);
 
+const { createVoicePreview } = require('./services/seedance');
+const { getSavedVoicePreview, saveVoicePreview } = require('./services/localMedia');
+
+// Plays a voice in the selected language (Indonesian by default).
+app.get('/api/voices/preview', async (req, res) => {
+  const voiceId = String(req.query.voice || '');
+  const lang = /english|^en$/i.test(String(req.query.lang || '')) ? 'en' : 'id';
+  try {
+    const saved = getSavedVoicePreview(voiceId, lang);
+    if (saved) return res.json({ url: '/' + saved });
+    const { url } = await createVoicePreview(voiceId, lang);
+    try {
+      const local = await saveVoicePreview(voiceId, lang, url);
+      return res.json({ url: '/' + local });
+    } catch (downloadErr) {
+      return res.json({ url });
+    }
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
 app.post('/api/settings', (req, res) => {
   const { api_key, api_base_url, default_resolution, default_ratio, default_model } = req.body;
   updateSettings({ api_key, api_base_url, default_resolution, default_ratio, default_model });
